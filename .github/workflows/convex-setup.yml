@@ -1,0 +1,28 @@
+name: Convex setup
+# Run once by hand (Actions › Convex setup › Run workflow). Creates the sign-in keys and sets plain settings.
+# The repo is public: never pass secrets here. RESEND_API_KEY and ANTHROPIC_API_KEY go in the Convex dashboard.
+on:
+  workflow_dispatch:
+    inputs:
+      set:
+        description: "Plain settings, e.g. ADMIN_EMAILS=you@icgadv.com;SITE_URL=https://icgceipt.hillsbuilds.com"
+        required: false
+        default: "SITE_URL=https://icgceipt.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>"
+permissions:
+  contents: read
+jobs:
+  setup:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - name: Set up
+        env:
+          CONVEX_DEPLOY_KEY: ${{ secrets.CONVEX_DEPLOY_KEY }}
+          SET: ${{ inputs.set }}
+        run: |
+          export CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY//%7C/|}"
+          export CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY//%7c/|}"
+          node scripts/setup-convex.mjs
