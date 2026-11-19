@@ -21,7 +21,14 @@ const EmailCode = Email({
   },
   async sendVerificationRequest({ identifier, token }) {
     const m = signInMail(token, identifier, CODE_MINUTES);
-    await sendEmail({ to: [identifier], subject: m.subject, text: m.text, html: m.html, tag: "signin" });
+    try {
+      await sendEmail({ to: [identifier], subject: m.subject, text: m.text, html: m.html, tag: "signin" });
+    } catch (e) {
+      // Say why on the sign-in screen (e.g. "domain not verified"), not just "something went wrong".
+      const why = String((e as Error)?.message ?? e).slice(0, 180);
+      console.error(`sign-in email failed: ${why}`);
+      throw new ConvexError(`Couldn't send the code email. ${why}`);
+    }
   },
 });
 
