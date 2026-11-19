@@ -5,6 +5,8 @@ import type * as auth from "../auth.js";
 import type * as http from "../http.js";
 import type * as lib_access from "../lib/access.js";
 import type * as lib_email from "../lib/email.js";
+import type * as lib_reading from "../lib/reading.js";
+import type * as receipts from "../receipts.js";
 import type * as users from "../users.js";
 
 declare const fullApi: ApiFromModules<{
@@ -12,6 +14,8 @@ declare const fullApi: ApiFromModules<{
   http: typeof http;
   "lib/access": typeof lib_access;
   "lib/email": typeof lib_email;
+  "lib/reading": typeof lib_reading;
+  receipts: typeof receipts;
   users: typeof users;
 }>;
 export declare const api: FilterApi<typeof fullApi, FunctionReference<any, "public">>;

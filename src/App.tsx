@@ -5,7 +5,10 @@ import { api } from "../convex/_generated/api";
 import { SignIn } from "./SignIn";
 import { Logo } from "./Logo";
 import { Crew } from "./Crew";
-import { errText, isIOS, isStandalone } from "./lib";
+import { Snap } from "./Snap";
+import { Receipt } from "./Receipt";
+import type { Id } from "../convex/_generated/dataModel";
+import { errText } from "./lib";
 
 type Tab = "snap" | "crew" | "me";
 
@@ -20,6 +23,7 @@ function SignedIn() {
   const me = useQuery(api.users.me);
   const { signOut } = useAuthActions();
   const [tab, setTab] = useState<Tab>("snap");
+  const [openId, setOpenId] = useState<Id<"receipts"> | null>(null);
 
   if (me === undefined) return <div className="screen center"><Logo big /></div>;
   if (me === null)
@@ -39,35 +43,17 @@ function SignedIn() {
         <span className="who">{me.name.split(" ")[0]}</span>
       </header>
       <main className="screen">
-        {tab === "snap" && <Home name={me.name} />}
+        {openId ? <Receipt id={openId} close={() => setOpenId(null)} /> : <>
+        {tab === "snap" && <Snap name={me.name} open={setOpenId} />}
         {tab === "crew" && me.role === "admin" && <Crew />}
         {tab === "me" && <Me email={me.email} name={me.name} role={me.role} />}
+        </>}
       </main>
       <nav className="tabs">
-        <button className={tab === "snap" ? "on" : ""} onClick={() => setTab("snap")}>Snap</button>
-        {me.role === "admin" && <button className={tab === "crew" ? "on" : ""} onClick={() => setTab("crew")}>Crew</button>}
-        <button className={tab === "me" ? "on" : ""} onClick={() => setTab("me")}>Me</button>
+        <button className={tab === "snap" ? "on" : ""} onClick={() => { setTab("snap"); setOpenId(null); }}>Snap</button>
+        {me.role === "admin" && <button className={tab === "crew" ? "on" : ""} onClick={() => { setTab("crew"); setOpenId(null); }}>Crew</button>}
+        <button className={tab === "me" ? "on" : ""} onClick={() => { setTab("me"); setOpenId(null); }}>Me</button>
       </nav>
-    </div>
-  );
-}
-
-function Home({ name }: { name: string }) {
-  const showInstall = isIOS() && !isStandalone();
-  return (
-    <div className="stack">
-      <h1>hey {name.split(" ")[0].toLowerCase()}.</h1>
-      <button className="snap" disabled title="Coming in Phase 3">
-        <span className="snap-icon" aria-hidden>◉</span>
-        Snap receipt
-      </button>
-      <p className="muted small center-text">Camera and receipt reading arrive in the next build phase.</p>
-      {showInstall && (
-        <div className="card hint">
-          <b>Put ICGceipt on your home screen</b>
-          <p>Tap <b>Share</b> <span aria-hidden>⎙</span> at the bottom of Safari, then <b>Add to Home Screen</b>. Sign in once more inside the app.</p>
-        </div>
-      )}
     </div>
   );
 }

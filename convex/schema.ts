@@ -2,8 +2,8 @@ import { defineSchema, defineTable } from "convex/server";
 import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
-// ICGceipt data. Phase 2: who can sign in (users + invites).
-// Later phases add shoots, categories, recipients and receipts.
+// ICGceipt data. Phase 2: who can sign in (users + invites). Phase 3: receipts (photo + what was read).
+// Phase 4 adds shoots, categories and recipients.
 export default defineSchema({
   ...authTables,
 
@@ -32,4 +32,39 @@ export default defineSchema({
     createdAt: v.number(),
     acceptedAt: v.optional(v.number()),
   }).index("by_email", ["email"]),
+
+  // One receipt photo and what was read from it. "draft" until sent (Phase 4).
+  receipts: defineTable({
+    userId: v.id("users"),
+    status: v.union(v.literal("draft"), v.literal("sent")),
+    photo: v.id("_storage"),
+    photoBytes: v.optional(v.number()),
+    read: v.union(v.literal("reading"), v.literal("done"), v.literal("failed")),
+    readError: v.optional(v.string()),
+    readModel: v.optional(v.string()),
+    readMs: v.optional(v.number()),
+    isReceipt: v.optional(v.boolean()),
+    vendor: v.optional(v.string()),
+    vendorAddress: v.optional(v.string()),
+    date: v.optional(v.string()),
+    time: v.optional(v.string()),
+    subtotal: v.optional(v.number()),
+    tax: v.optional(v.number()),
+    tip: v.optional(v.number()),
+    total: v.optional(v.number()),
+    currency: v.optional(v.string()),
+    paymentMethod: v.optional(v.string()),
+    cardLast4: v.optional(v.string()),
+    items: v.optional(v.array(v.object({ description: v.string(), quantity: v.optional(v.number()), amount: v.optional(v.number()) }))),
+    categoryHint: v.optional(v.string()),
+    confidence: v.optional(v.object({ vendor: v.string(), date: v.string(), total: v.string() })),
+    aiNotes: v.optional(v.string()),
+    // What the reviewer should check (field → reason). Cleared field by field as they edit.
+    flags: v.optional(v.record(v.string(), v.string())),
+    // Fields the person changed by hand (for the accuracy log).
+    edited: v.optional(v.array(v.string())),
+    createdAt: v.number(),
+  })
+    .index("by_user", ["userId", "createdAt"])
+    .index("by_status", ["status", "createdAt"]),
 });
