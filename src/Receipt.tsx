@@ -4,6 +4,7 @@ import { api } from "../convex/_generated/api";
 import type { Id } from "../convex/_generated/dataModel";
 import { money } from "./photo";
 import { errText } from "./lib";
+import { SendPanel } from "./SendPanel";
 
 type Key = "vendor" | "vendorAddress" | "date" | "subtotal" | "tax" | "tip" | "total" | "paymentMethod" | "cardLast4";
 const NUMS: Key[] = ["subtotal", "tax", "tip", "total"];
@@ -17,6 +18,8 @@ export function Receipt({ id, close }: { id: Id<"receipts">; close: () => void }
   const [zoom, setZoom] = useState(false);
   const [msg, setMsg] = useState("");
   const [sure, setSure] = useState(false);
+  const [tagging, setTagging] = useState(false);
+  const retry = useMutation(api.receipts.retryDelivery);
 
   if (r === undefined) return <div className="stack"><p className="muted">Loading…</p></div>;
   if (r === null) return <div className="stack"><p>That receipt is gone.</p><button className="btn" onClick={close}>Back</button></div>;
@@ -94,9 +97,29 @@ export function Receipt({ id, close }: { id: Id<"receipts">; close: () => void }
           {r.aiNotes && <p className="muted small">Note: {r.aiNotes}</p>}
           {msg && <p className="error">{msg}</p>}
 
+          {r.status === "sent" && (
+            <div className="card sent">
+              <b>Sent as {`ICG-${String(r.number ?? 0).padStart(4, "0")}`}</b>
+              <p className="small">{[r.clientName, r.shootName].filter(Boolean).join(" › ")} · {r.categoryName}{r.note ? ` · ${r.note}` : ""}</p>
+              <p className="small muted">To {(r.sentTo ?? []).join(", ")} · {r.sentAt ? new Date(r.sentAt).toLocaleString() : ""}</p>
+              <p className="small">
+                Email: <b className={r.emailStatus === "failed" ? "bad" : ""}>{r.emailStatus === "sent" ? "sent ✓" : r.emailStatus === "failed" ? "failed" : "sending…"}</b>
+                {" · "}ICG Sheet: <b className={r.sheetStatus === "failed" ? "bad" : ""}>{r.sheetStatus === "done" ? "logged ✓" : r.sheetStatus === "failed" ? "failed" : r.sheetStatus === "off" ? "not connected" : "logging…"}</b>
+              </p>
+              {(r.emailError || r.sheetError) && <p className="small muted">{[r.emailError, r.sheetError].filter(Boolean).join(" · ")}</p>}
+              {(r.emailStatus === "failed" || r.sheetStatus === "failed") && (
+                <button className="btn" onClick={() => void retry({ id }).catch((e) => setMsg(errText(e)))}>Try again</button>
+              )}
+            </div>
+          )}
+
           {r.mine && r.status === "draft" && (
             <>
-              <button className="btn primary" disabled title="Phase 4">Tag &amp; send — coming next</button>
+              {tagging ? (
+                <SendPanel id={id} total={r.total} onSent={() => setTagging(false)} />
+              ) : (
+                <button className="btn primary" disabled={r.read === "reading"} onClick={() => setTagging(true)}>Tag &amp; send</button>
+              )}
               {sure ? (
                 <button className="btn danger" onClick={async () => { await discard({ id }); close(); }}>Yes, throw it away</button>
               ) : (

@@ -21,7 +21,8 @@ Keys never go in the repo or chat. Paste them into the dashboards.
    - `ICG_SHEET_URL` and `ICG_SHEET_SECRET` (Phase 4)
 3. **Run the "Convex setup" workflow once:** `ADMIN_EMAILS=hestonh@icgadv.com;SITE_URL=https://icgceipts.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>`
 4. **Resend:** verify `hillsbuilds.com` (DNS records at GoDaddy).
-5. **GoDaddy DNS:** `CNAME icgceipts → heston-cyber.github.io`.
+5. **ICG Sheet (Phase 4):** open the Sheet › Extensions › Apps Script, paste `apps-script/Code.gs`, run `makeSecret` (copy the logged secret to Convex `ICG_SHEET_SECRET`), then Deploy › New deployment › Web app (Execute as **Me**, Who has access **Anyone**) and put the web app URL in Convex `ICG_SHEET_URL`. Rows land on a "Receipts" tab; photos go to an "ICGceipt photos" Drive folder next to the Sheet.
+6. **GoDaddy DNS:** `CNAME icgceipts → heston-cyber.github.io`.
 
 ## Commands
 

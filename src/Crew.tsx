@@ -24,7 +24,6 @@ export function Crew() {
 
   return (
     <div className="stack">
-      <h1>crew.</h1>
       <form
         className="card"
         onSubmit={(e) => {

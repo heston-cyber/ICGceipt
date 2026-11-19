@@ -5,6 +5,7 @@ import { api } from "../convex/_generated/api";
 import { SignIn } from "./SignIn";
 import { Logo } from "./Logo";
 import { Crew } from "./Crew";
+import { Lists, MyRecipients } from "./Lists";
 import { Snap } from "./Snap";
 import { Receipt } from "./Receipt";
 import type { Id } from "../convex/_generated/dataModel";
@@ -45,13 +46,13 @@ function SignedIn() {
       <main className="screen">
         {openId ? <Receipt id={openId} close={() => setOpenId(null)} /> : <>
         {tab === "snap" && <Snap name={me.name} open={setOpenId} />}
-        {tab === "crew" && me.role === "admin" && <Crew />}
+        {tab === "crew" && me.role === "admin" && <Admin />}
         {tab === "me" && <Me email={me.email} name={me.name} role={me.role} />}
         </>}
       </main>
       <nav className="tabs">
         <button className={tab === "snap" ? "on" : ""} onClick={() => { setTab("snap"); setOpenId(null); }}>Snap</button>
-        {me.role === "admin" && <button className={tab === "crew" ? "on" : ""} onClick={() => { setTab("crew"); setOpenId(null); }}>Crew</button>}
+        {me.role === "admin" && <button className={tab === "crew" ? "on" : ""} onClick={() => { setTab("crew"); setOpenId(null); }}>Admin</button>}
         <button className={tab === "me" ? "on" : ""} onClick={() => { setTab("me"); setOpenId(null); }}>Me</button>
       </nav>
     </div>
@@ -103,7 +104,22 @@ function Me({ email, name, role }: { email: string; name: string; role: string }
         {msg && <p className="small">{msg}</p>}
         <button className="btn">Save name</button>
       </form>
+      <MyRecipients />
       <button className="btn" onClick={() => void signOut()}>Sign out</button>
+    </div>
+  );
+}
+
+function Admin() {
+  const [part, setPart] = useState<"lists" | "crew">("lists");
+  return (
+    <div className="stack">
+      <h1>admin.</h1>
+      <div className="seg">
+        <button className={part === "lists" ? "on" : ""} onClick={() => setPart("lists")}>Lists</button>
+        <button className={part === "crew" ? "on" : ""} onClick={() => setPart("crew")}>Crew</button>
+      </div>
+      {part === "lists" ? <Lists /> : <Crew />}
     </div>
   );
 }

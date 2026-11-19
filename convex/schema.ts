@@ -3,7 +3,7 @@ import { authTables } from "@convex-dev/auth/server";
 import { v } from "convex/values";
 
 // ICGceipt data. Phase 2: who can sign in (users + invites). Phase 3: receipts (photo + what was read).
-// Phase 4 adds shoots, categories and recipients.
+// Phase 4: clients › shoots, categories, recipients, sending (email + ICG Sheet), receipt numbers.
 export default defineSchema({
   ...authTables,
 
@@ -64,7 +64,64 @@ export default defineSchema({
     // Fields the person changed by hand (for the accuracy log).
     edited: v.optional(v.array(v.string())),
     createdAt: v.number(),
+    // Phase 4: tagging and sending. Names are copied at send time so the record never changes later.
+    number: v.optional(v.number()),
+    clientId: v.optional(v.id("clients")),
+    shootId: v.optional(v.id("shoots")),
+    categoryId: v.optional(v.id("categories")),
+    clientName: v.optional(v.string()),
+    shootName: v.optional(v.string()),
+    categoryName: v.optional(v.string()),
+    note: v.optional(v.string()),
+    sentTo: v.optional(v.array(v.string())),
+    sentAt: v.optional(v.number()),
+    senderName: v.optional(v.string()),
+    senderEmail: v.optional(v.string()),
+    emailStatus: v.optional(v.union(v.literal("sending"), v.literal("sent"), v.literal("failed"))),
+    emailError: v.optional(v.string()),
+    sheetStatus: v.optional(v.union(v.literal("sending"), v.literal("done"), v.literal("failed"), v.literal("off"))),
+    sheetError: v.optional(v.string()),
+    dupKey: v.optional(v.string()), // vendor|date|total, for the duplicate warning
   })
     .index("by_user", ["userId", "createdAt"])
-    .index("by_status", ["status", "createdAt"]),
+    .index("by_status", ["status", "createdAt"])
+    .index("by_dup", ["dupKey"]),
+
+  clients: defineTable({
+    name: v.string(),
+    key: v.string(), // lower-case name, for "already exists"
+    archived: v.optional(v.boolean()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  shoots: defineTable({
+    clientId: v.id("clients"),
+    name: v.string(),
+    key: v.string(),
+    archived: v.optional(v.boolean()),
+    createdBy: v.id("users"),
+    createdAt: v.number(),
+  }).index("by_client", ["clientId", "key"]),
+
+  categories: defineTable({
+    name: v.string(),
+    key: v.string(),
+    order: v.number(),
+    archived: v.optional(v.boolean()),
+    createdBy: v.optional(v.id("users")),
+    createdAt: v.number(),
+  }).index("by_key", ["key"]),
+
+  // Shared (admin-managed, can be pre-ticked) or one person's own saved addresses.
+  recipients: defineTable({
+    email: v.string(),
+    name: v.optional(v.string()),
+    ownerId: v.optional(v.id("users")), // missing = shared
+    isDefault: v.optional(v.boolean()),
+    createdAt: v.number(),
+  })
+    .index("by_owner", ["ownerId", "email"]),
+
+  counters: defineTable({ name: v.string(), value: v.number() }).index("by_name", ["name"]),
 });

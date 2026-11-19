@@ -3,7 +3,9 @@ import { internalAction, internalMutation, internalQuery, mutation, query } from
 import type { QueryCtx } from "./_generated/server";
 import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { requireUser } from "./lib/access";
+import { requireUser, normEmail, validEmail } from "./lib/access";
+import { fromOnBehalf, sendEmail } from "./lib/email";
+import { dupKey, photoFileName, receiptMail, receiptNo, sheetRow, type SentReceipt } from "./lib/receiptMail";
 import { RECEIPT_PROMPT, RECEIPT_TOOL, checkReading, needsSecondLook, normalizeReading, type Confidence, type Reading } from "./lib/reading";
 
 const MAX_PHOTO_BYTES = 8 * 1024 * 1024; // the phone shrinks photos to ~0.3–1 MB first
@@ -274,3 +276,159 @@ function toBase64(bytes: Uint8Array): string {
   for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   return btoa(s);
 }
+
+// ── Tag & send (Phase 4) ─────────────────────────────────────────────────────────────────
+
+/** Tags the receipt and sends it: email (on the sender's behalf, photo attached) + a row in the ICG Sheet.
+ *  If the same vendor/date/total was sent before, returns { duplicate } unless confirmDuplicate is set. */
+export const send = mutation({
+  args: {
+    id: v.id("receipts"),
+    clientId: v.id("clients"),
+    shootId: v.optional(v.id("shoots")),
+    categoryId: v.id("categories"),
+    note: v.optional(v.string()),
+    to: v.array(v.string()),
+    confirmDuplicate: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<{ number: number } | { duplicate: { number: string; by: string; at: number } }> => {
+    const { me, r } = await loadFor(ctx, args.id);
+    if (r.userId !== me._id) throw new ConvexError("Only the person who snapped it can send it.");
+    if (r.status !== "draft") throw new ConvexError("This receipt was already sent.");
+    if (r.read === "reading") throw new ConvexError("Still reading the receipt. One moment.");
+    const missing = [!r.vendor && "vendor", !r.date && "date", r.total === undefined && "total"].filter(Boolean);
+    if (missing.length) throw new ConvexError(`Fill in the ${missing.join(", ")} first.`);
+    if (!me.name) throw new ConvexError("Add your name first (Me tab).");
+
+    const client = await ctx.db.get(args.clientId);
+    if (!client || client.archived) throw new ConvexError("Pick a client.");
+    const shoot = args.shootId ? await ctx.db.get(args.shootId) : null;
+    if (args.shootId && (!shoot || shoot.archived || shoot.clientId !== client._id)) throw new ConvexError("That shoot isn't under this client.");
+    const category = await ctx.db.get(args.categoryId);
+    if (!category || category.archived) throw new ConvexError("Pick a category.");
+
+    const to = [...new Set(args.to.map(normEmail))];
+    if (!to.length) throw new ConvexError("Add at least one email to send it to.");
+    if (to.length > 10) throw new ConvexError("Ten recipients at most.");
+    const bad = to.find((e) => !validEmail(e));
+    if (bad) throw new ConvexError(`"${bad}" isn't a valid email.`);
+
+    const key = dupKey(r.vendor, r.date, r.total);
+    if (key && !args.confirmDuplicate) {
+      const prior = (await ctx.db.query("receipts").withIndex("by_dup", (q) => q.eq("dupKey", key)).collect()).find((x) => x.status === "sent");
+      if (prior) {
+        const by = prior.senderName ?? "someone";
+        return { duplicate: { number: receiptNo(prior.number ?? 0), by, at: prior.sentAt ?? prior.createdAt } };
+      }
+    }
+
+    const counter = await ctx.db.query("counters").withIndex("by_name", (q) => q.eq("name", "receipt")).first();
+    const number = (counter?.value ?? 0) + 1;
+    if (counter) await ctx.db.patch(counter._id, { value: number });
+    else await ctx.db.insert("counters", { name: "receipt", value: number });
+
+    await ctx.db.patch(r._id, {
+      status: "sent",
+      number,
+      clientId: client._id, clientName: client.name,
+      shootId: shoot?._id, shootName: shoot?.name,
+      categoryId: category._id, categoryName: category.name,
+      note: args.note?.trim().slice(0, 500) || undefined,
+      sentTo: to, sentAt: Date.now(),
+      senderName: me.name, senderEmail: me.email,
+      emailStatus: "sending", sheetStatus: "sending",
+      dupKey: key,
+    });
+    await ctx.scheduler.runAfter(0, internal.receipts.deliver, { id: r._id });
+    return { number };
+  },
+});
+
+/** Try the email and/or the Sheet again after a failure. */
+export const retryDelivery = mutation({
+  args: { id: v.id("receipts") },
+  handler: async (ctx, { id }) => {
+    const { me, r } = await loadFor(ctx, id);
+    if (r.userId !== me._id && me.role !== "admin") throw new ConvexError("Not yours to resend.");
+    if (r.status !== "sent") throw new ConvexError("Send it first.");
+    const email = r.emailStatus === "failed", sheet = r.sheetStatus === "failed";
+    if (!email && !sheet) return;
+    await ctx.db.patch(id, { ...(email ? { emailStatus: "sending" as const, emailError: undefined } : {}), ...(sheet ? { sheetStatus: "sending" as const, sheetError: undefined } : {}) });
+    await ctx.scheduler.runAfter(0, internal.receipts.deliver, { id, email, sheet });
+  },
+});
+
+export const setDelivery = internalMutation({
+  args: {
+    id: v.id("receipts"),
+    emailStatus: v.optional(v.union(v.literal("sent"), v.literal("failed"))),
+    emailError: v.optional(v.string()),
+    sheetStatus: v.optional(v.union(v.literal("done"), v.literal("failed"), v.literal("off"))),
+    sheetError: v.optional(v.string()),
+  },
+  handler: async (ctx, { id, ...patch }) => {
+    await ctx.db.patch(id, patch);
+  },
+});
+
+export const deliver = internalAction({
+  args: { id: v.id("receipts"), email: v.optional(v.boolean()), sheet: v.optional(v.boolean()) },
+  handler: async (ctx, { id, email = true, sheet = true }) => {
+    const r = await ctx.runQuery(internal.receipts.forReading, { id });
+    if (!r || r.status !== "sent" || !r.number) return;
+    const sent = r as unknown as SentReceipt;
+    const blob = await ctx.storage.get(r.photo);
+    const photoName = photoFileName(sent);
+
+    if (email) {
+      try {
+        if (!blob) throw new Error("The photo is missing.");
+        const m = receiptMail(sent);
+        const to = r.sentTo ?? [];
+        const cc = r.senderEmail && !to.includes(r.senderEmail) ? [r.senderEmail] : [];
+        await sendEmail({
+          from: fromOnBehalf(r.senderName ?? ""),
+          to, cc, replyTo: r.senderEmail,
+          subject: m.subject, text: m.text, html: m.html, tag: "receipt",
+          attachments: [{ filename: photoName, content: toBase64(new Uint8Array(await blob.arrayBuffer())) }],
+        });
+        await ctx.runMutation(internal.receipts.setDelivery, { id, emailStatus: "sent" });
+      } catch (e) {
+        const msg = String((e as Error)?.message ?? e).slice(0, 200);
+        console.error(`receipt email failed: ${msg}`);
+        await ctx.runMutation(internal.receipts.setDelivery, { id, emailStatus: "failed", emailError: msg });
+      }
+    }
+
+    if (sheet) {
+      const url = (process.env.ICG_SHEET_URL ?? "").trim();
+      if (!url) {
+        await ctx.runMutation(internal.receipts.setDelivery, { id, sheetStatus: "off" });
+        return;
+      }
+      try {
+        const res = await fetch(url, {
+          method: "POST",
+          headers: { "content-type": "text/plain;charset=utf-8" }, // Apps Script reads e.postData.contents
+          body: JSON.stringify({
+            secret: process.env.ICG_SHEET_SECRET ?? "",
+            row: sheetRow(sent),
+            photoUrl: await ctx.storage.getUrl(r.photo),
+            photoName,
+          }),
+          redirect: "follow",
+        });
+        const text = await res.text();
+        let ok = false, err = "";
+        try { const j = JSON.parse(text) as { ok?: boolean; error?: string }; ok = !!j.ok; err = j.error ?? ""; }
+        catch { err = /^\s*</.test(text) ? "Google asked for a sign-in: the Sheet's web app needs “Who has access: Anyone”" : `Unexpected reply (${res.status})`; }
+        if (!ok) throw new Error(err || `Sheet said no (${res.status})`);
+        await ctx.runMutation(internal.receipts.setDelivery, { id, sheetStatus: "done" });
+      } catch (e) {
+        const msg = String((e as Error)?.message ?? e).slice(0, 200);
+        console.error(`sheet failed: ${msg}`);
+        await ctx.runMutation(internal.receipts.setDelivery, { id, sheetStatus: "failed", sheetError: msg });
+      }
+    }
+  },
+});
