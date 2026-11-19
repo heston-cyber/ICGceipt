@@ -1,0 +1,4 @@
+# Plain (non-secret) Convex settings, applied on every deploy. Secrets go in the Convex dashboard, never here.
+ADMIN_EMAILS=hestonh@icgadv.com
+SITE_URL=https://icgceipts.hillsbuilds.com
+EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>

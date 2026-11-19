@@ -31,6 +31,8 @@ jobs:
           # Some copy paths turn the key's "|" into "%7C". A real key never contains it, so undo it.
           export CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY//%7C/|}"
           export CONVEX_DEPLOY_KEY="${CONVEX_DEPLOY_KEY//%7c/|}"
+          # Sign-in keys (made once) and the plain settings in convex.settings, so no hand-run setup is needed.
+          SET="$(grep -v '^#' convex.settings | grep . | paste -sd ';' -)" node scripts/setup-convex.mjs
           npx convex deploy --cmd 'npm run build' --cmd-url-env-var-name VITE_CONVEX_URL
           echo "Settings on live (names only): $(npx convex env list 2>/dev/null | cut -d= -f1 | sort | tr '\n' ' ')"
       - name: Build the site only (no backend key yet)
