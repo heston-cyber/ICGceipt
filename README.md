@@ -19,7 +19,7 @@ Keys never go in the repo or chat. Paste them into the dashboards.
    - `RESEND_API_KEY`
    - `ANTHROPIC_API_KEY` (Phase 3)
    - `ICG_SHEET_URL` and `ICG_SHEET_SECRET` (Phase 4)
-3. **Run the "Convex setup" workflow once:** `ADMIN_EMAILS=<your email>;SITE_URL=https://icgceipts.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>`
+3. **Run the "Convex setup" workflow once:** `ADMIN_EMAILS=hestonh@icgadv.com;SITE_URL=https://icgceipts.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>`
 4. **Resend:** verify `hillsbuilds.com` (DNS records at GoDaddy).
 5. **GoDaddy DNS:** `CNAME icgceipts → heston-cyber.github.io`.
 

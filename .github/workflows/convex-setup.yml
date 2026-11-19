@@ -7,7 +7,7 @@ on:
       set:
         description: "Plain settings, e.g. ADMIN_EMAILS=you@icgadv.com;SITE_URL=https://icgceipts.hillsbuilds.com"
         required: false
-        default: "SITE_URL=https://icgceipts.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>"
+        default: "ADMIN_EMAILS=hestonh@icgadv.com;SITE_URL=https://icgceipts.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>"
 permissions:
   contents: read
 jobs:
