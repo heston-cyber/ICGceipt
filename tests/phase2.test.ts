@@ -128,10 +128,10 @@ describe("T2.3 roles and removal keep at least one admin", () => {
 
 describe("T2.4 emails", () => {
   test("sign-in email carries the code and a one-tap link with the email", () => {
-    process.env.SITE_URL = "https://icgceipt.hillsbuilds.com";
+    process.env.SITE_URL = "https://icgceipts.hillsbuilds.com";
     const m = signInMail("123456", "pat@icgadv.com", 15);
     expect(m.subject).toContain("123456");
-    expect(m.text).toContain("https://icgceipt.hillsbuilds.com/?signin=123456&email=pat%40icgadv.com");
+    expect(m.text).toContain("https://icgceipts.hillsbuilds.com/?signin=123456&email=pat%40icgadv.com");
   });
   test("receipts go out in the sender's name on the verified address (no header injection)", () => {
     process.env.EMAIL_FROM = "ICGceipt <receipts@hillsbuilds.com>";

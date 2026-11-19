@@ -1,5 +1,5 @@
 name: Deploy
-# Every push to main: tests, then the Convex backend, then the site on GitHub Pages (icgceipt.hillsbuilds.com).
+# Every push to main: tests, then the Convex backend, then the site on GitHub Pages (icgceipts.hillsbuilds.com).
 on:
   push:
     branches: [main]

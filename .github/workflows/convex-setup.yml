@@ -5,9 +5,9 @@ on:
   workflow_dispatch:
     inputs:
       set:
-        description: "Plain settings, e.g. ADMIN_EMAILS=you@icgadv.com;SITE_URL=https://icgceipt.hillsbuilds.com"
+        description: "Plain settings, e.g. ADMIN_EMAILS=you@icgadv.com;SITE_URL=https://icgceipts.hillsbuilds.com"
         required: false
-        default: "SITE_URL=https://icgceipt.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>"
+        default: "SITE_URL=https://icgceipts.hillsbuilds.com;EMAIL_FROM=ICGceipt <receipts@hillsbuilds.com>"
 permissions:
   contents: read
 jobs:

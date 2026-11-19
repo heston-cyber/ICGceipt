@@ -56,7 +56,7 @@ export const sixDigits = () => {
   return String(100000 + (b[0] % 900000));
 };
 
-export const SITE = () => (process.env.SITE_URL ?? "").replace(/\/+$/, "") || "https://icgceipt.hillsbuilds.com";
+export const SITE = () => (process.env.SITE_URL ?? "").replace(/\/+$/, "") || "https://icgceipts.hillsbuilds.com";
 
 /** The sign-in email: a 6-digit code (works inside the home-screen app) and a one-tap link (works in Safari). */
 export function signInMail(code: string, email: string, minutes: number) {
