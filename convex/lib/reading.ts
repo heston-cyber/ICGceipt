@@ -66,17 +66,17 @@ export const RECEIPT_TOOL = {
         },
         required: ["vendor", "date", "total"],
       },
-      notes: { type: ["string", "null"], description: "Anything a bookkeeper should know (faded, cut off, two receipts, refund…)." },
+      notes: { type: ["string", "null"], description: "Only if something is wrong with the receipt or photo that affects the numbers (faded, cut off, two receipts, a refund, a total you couldn't read). One short sentence. Otherwise null. Never comment on what the purchase was for." },
     },
     required: ["is_receipt", "items", "confidence"],
   },
 } as const;
 
 export const RECEIPT_PROMPT =
-  "This is a photo of a receipt from a film/video shoot, taken on a phone. Read it carefully and call record_receipt. " +
+  "This is a photo of a receipt, taken on a phone. Read it carefully and call record_receipt. " +
   "Amounts are plain numbers (12.5, not '$12.50'). Dates are YYYY-MM-DD; if the year is printed as two digits, assume 20xx. " +
   "If a tip was written in by hand, include it and use the handwritten total. Only give the last 4 digits of any card number. " +
-  "Say low confidence rather than guessing.";
+  "Say low confidence rather than guessing. Leave notes null unless something affects the numbers.";
 
 const num = (v: unknown): number | undefined => {
   if (typeof v === "number" && Number.isFinite(v)) return Math.round(v * 100) / 100;
